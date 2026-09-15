@@ -12,7 +12,7 @@
   <b>Stop manually applying to hundreds of jobs. Let AI discover opportunities, tune your resume for ATS, auto-fill applications, and discover strategic referrals in 1 click.</b>
 </p>
 
-[Explore Documentation](./docs/IMPLEMENTATION_PLAN.md) • [View Tech Stack](./docs/techStack.md) • [Sitemap Flow](./docs/sitemap.md)
+[📖 Project Wiki](https://github.com/creed-online/getaJob.ai/wiki) • [🛰️ Implementation Plan](https://github.com/creed-online/getaJob.ai/wiki) • [🛠️ Tech Stack](https://github.com/creed-online/getaJob.ai/wiki) • [🗺️ 3D Sitemap](https://github.com/creed-online/getaJob.ai/wiki)
 
 </div>
 
@@ -27,3 +27,8 @@
 - 🤖 **1-Click Auto-Apply Engine:** Playwright browser agent navigates multi-page portal forms gracefully, pausing only when encountering unanswerable custom questions.
 - 🤝 **5-Contact Referral Finder:** Post-application discovery of 5 key company contacts (Recruiters, Leads, Peers, Alumni) with pre-crafted 1-click copy outreach messages.
 - 📊 **Real-Time Application Tracker:** Live KPI counters (Today, Week, Month, Year), status tracking table, and 1-click Excel (.xlsx) / JSON export.
+
+---
+
+### 📚 Documentation
+For in-depth architectural diagrams, complete database schemas, API specs, and the 88-task execution plan, visit the **[Official GitHub Wiki ↗](https://github.com/creed-online/getaJob.ai/wiki)**.
