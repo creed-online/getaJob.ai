@@ -1,0 +1,6 @@
+﻿# Ignore sensitive and cache files in this directory
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
+
