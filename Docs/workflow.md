@@ -1,4 +1,9 @@
-# GetaJob.ai
+# GetaJob.ai — Conceptual Product Intent
+
+> [!WARNING]
+> **Superseded by V2 Architecture & Implementation Plan**  
+> Retained for original product intent and vision only. Discovery, referrals, and stale-filter sections no longer reflect the technical build. Refer to [`BUILD_GUIDE.md`](./BUILD_GUIDE.md), [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md), and [`techStack.md`](./techStack.md) for the active technical specification.
+
 
 
 
