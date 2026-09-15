@@ -1,22 +1,21 @@
-# 🛰️ getJob.ai — Master Technical Implementation Plan & Execution Tracker (Refactored)
+# 🛰️ getJob.ai — Master Technical Implementation Plan & Execution Tracker (V2 Production)
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 │  PROJECT: getJob.ai (getaJob.ai)                     STAGE: Production-Ready Roadmap                   │
 │  CORE ARCHITECTURE: 3D Multi-Tenant AI Career Copilot LAST UPDATED: 2026-09-15                          │
-│  TOTAL PHASES: 7 (MVP: Phases 1, 2, 3, 4, 7)         TOTAL TASKS: 88 (MVP: 48 Tasks)                   │
+│  TOTAL PHASES: 7 (MVP Core: Phases 1, 2, 3, 4, 7)     TOTAL TASKS: 88 (MVP: 48 Tasks)                   │
 │  OVERALL PROGRESS: [░░░░░░░░░░░░░░░░░░░░] 0% (0/88 Tasks Completed)                                   │
 └────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 > [!IMPORTANT]
-> **PRODUCTION-READY REFACTORING HIGHLIGHTS:**
-> * **Background Worker Queue:** Introduced `Redis + arq` to offload heavy RAG embeddings, browser sessions, and PDF compilations from the HTTP thread.
-> * **Database Safety:** Added `Alembic` database migrations and a `docker-compose.yml` for PostgreSQL + `pgvector` dev/prod parity.
-> * **Zero-Ban Discovery:** Pivoted from fragile HTML scraping to official/public structured JSON/RSS endpoints (Greenhouse, Lever, Ashby, Hacker News API, Unstop RSS).
-> * **Hybrid Auto-Apply:** 1-Click Auto-Apply for Greenhouse & Lever + Assisted Apply Copilot for complex multi-step portals.
-> * **5-Contact Referral Finder:** Retained intact — discovers 5 company contacts with LinkedIn, contact details, and personalized 1-click copy outreach messages.
-> * **Security & Metering:** JWT stored in `httpOnly` secure cookies + `CreditMeterService` for per-user token and apply quota management.
+> **V2 PRODUCTION REFINEMENTS:**
+> * **Zero-Ban Discovery:** Includes `company_registry.py` (500+ curated Greenhouse/Lever boards) + **Adzuna Global API** + Hacker News API + Unstop/Devpost RSS.
+> * **Realistic Stale Filter:** Based on verified posting age decay (`posted_days > 21` ➔ 50% penalty, `> 45` ➔ 80% penalty) rather than unavailable applicant counts.
+> * **Legally Clean Referral Engine:** Generates targeted LinkedIn search URLs (opens in user's own session) + AI outreach drafts, eliminating all PII/DPDP liability.
+> * **Background Worker & DB Migrations:** `Redis + arq` worker queue, `alembic` migrations, and Dockerized PostgreSQL 16 with `pgvector`.
+> * **Security & Metering:** JWT in `httpOnly` `SameSite=Lax` cookies, file upload size/MIME guardrails, and `CreditMeterService`.
 
 ---
 
@@ -26,10 +25,10 @@
 | :---: | :--- | :---: | :--- | :---: | :---: |
 | **01** | **Scaffolding, Migrations, Queue & Auth** | `MVP Core - P0` | Backend / Infra / 3D | **12** | `⚪ NOT STARTED` |
 | **02** | **3D Knowledge Base Onboarding (RAG)** | `MVP Core - P0` | AI / Vector / RAG | **14** | `⚪ NOT STARTED` |
-| **03** | **API-Based Opportunity Radar & Scoring** | `MVP Core - P0` | APIs / Scoring / Feeds | **12** | `⚪ NOT STARTED` |
+| **03** | **Global Discovery Radar & Stale Decay** | `MVP Core - P0` | APIs / Seed Registry | **12** | `⚪ NOT STARTED` |
 | **04** | **Validation & ATS Tailoring Studio (Typst)**| `MVP Core - P0` | Typst / LLM / PDFs | **14** | `⚪ NOT STARTED` |
 | **05** | **1-Click & Assisted Auto-Apply Engine** | `Phase 2 - P1` | Playwright / Copilot | **14** | `⚪ NOT STARTED` |
-| **06** | **5-Contact Referral Finder & Drafter** | `Phase 2 - P1` | Contact Enrichment | **10** | `⚪ NOT STARTED` |
+| **06** | **LinkedIn Referral Generator & Drafter** | `Phase 2 - P1` | Contact Search & AI | **10** | `⚪ NOT STARTED` |
 | **07** | **Real-Time Tracker & Analytics Hub** | `MVP Core - P0` | Database / Analytics | **12** | `⚪ NOT STARTED` |
 | **ALL** | **Full System Lifecycle** | — | **End-to-End** | **88** | `⚪ NOT STARTED` |
 
@@ -42,7 +41,7 @@ Phase Status: ⚪ NOT STARTED   |   Priority: P0 - Critical (MVP Core)   |   Tas
 ```
 
 ### 🎯 Objective
-Set up Dockerized PostgreSQL with `pgvector`, Redis background worker (`arq`), Alembic database migrations, `httpOnly` cookie JWT authentication, quota metering (`CreditMeterService`), and **Screen 1: 3D Spline Hero Portal (`fcb3d45a-1ffd-474a-afbf-9643cc3a0d40`)** with "Get a Job" and Login/Signup modals.
+Set up Dockerized PostgreSQL with `pgvector`, Redis background worker (`arq`), Alembic database migrations, `httpOnly` cookie JWT authentication (`SameSite=Lax`), structured logging (`structlog`), quota metering (`CreditMeterService`), file upload validation (5MB max, MIME check), and **Screen 1: 3D Spline Hero Portal (`fcb3d45a-1ffd-474a-afbf-9643cc3a0d40`)** with "Get a Job" and Login/Signup modals.
 
 ### 📐 Phase 1 Technical Implementation Flowchart
 ```mermaid
@@ -61,9 +60,10 @@ flowchart TD
     subgraph BackendGateway ["FastAPI Core (backend/app/)"]
         EP_Auth["Auth Endpoints (/api/auth/register, /login, /me)"]
         Alembic["Alembic Schema Migrations (alembic upgrade head)"]
-        Security["Bcrypt Hashing + httpOnly Cookie JWT Issuer"]
+        Security["Bcrypt Hashing + httpOnly SameSite=Lax Cookie JWT"]
         CreditMeter["CreditMeterService (Tracks credits_remaining)"]
         ArqWorker["Arq Background Worker (app/worker.py)"]
+        UploadGuard["UploadValidator (5MB limit & PDF/DOCX MIME check)"]
     end
 
     AuthModals --> EP_Auth --> Security --> Docker_PG
@@ -77,16 +77,16 @@ flowchart TD
 
 | Task ID | Status | Priority | Target File Path | Class / Function / Component | Dependencies / Notes |
 | :---: | :---: | :---: | :--- | :--- | :--- |
-| `TASK-1.01` | [ ] | `P0` | `docker-compose.yml` | PostgreSQL + `pgvector` and Redis services | Local infrastructure setup with 100% dev/prod parity |
-| `TASK-1.02` | [ ] | `P0` | `backend/requirements.txt` | Python dependencies | `fastapi`, `sqlalchemy`, `asyncpg`, `alembic`, `arq`, `redis`, `google-genai` |
+| `TASK-1.01` | [ ] | `P0` | `docker-compose.yml` | PostgreSQL + `pgvector` and Redis 7 services | Local infrastructure setup with 100% dev/prod parity |
+| `TASK-1.02` | [ ] | `P0` | `backend/requirements.txt` | Python dependencies | `fastapi`, `sqlalchemy`, `asyncpg`, `alembic`, `arq`, `redis`, `structlog` |
 | `TASK-1.03` | [ ] | `P0` | `backend/alembic/` | Alembic initialization & `env.py` | `alembic init alembic` with asyncpg connection |
 | `TASK-1.04` | [ ] | `P0` | `backend/app/core/config.py` | `class Settings(BaseSettings)` | Loads DB URL, Redis URL, JWT Secret, Gemini API Key |
 | `TASK-1.05` | [ ] | `P0` | `backend/app/core/database.py` | Async sessionmaker with `asyncpg` | Connection pool manager for PostgreSQL |
 | `TASK-1.06` | [ ] | `P0` | `backend/app/models/user.py` | `class User(Base)` | Multi-tenant model with `subscription_tier` & `credits_remaining` |
-| `TASK-1.07` | [ ] | `P0` | `backend/app/core/security.py` | Password hashing & `httpOnly` cookie JWT helpers | Secure SameSite cookie auth preventing XSS |
+| `TASK-1.07` | [ ] | `P0` | `backend/app/core/security.py` | Password hashing & `httpOnly` cookie JWT helpers | Secure SameSite=Lax cookie auth with Next.js path proxy |
 | `TASK-1.08` | [ ] | `P0` | `backend/app/services/credit_meter.py` | `class CreditMeterService` | Enforces monthly credits and rate limits per user |
-| `TASK-1.09` | [ ] | `P0` | `backend/app/worker.py` | `class WorkerSettings` (Arq) | Async task worker handling offloaded background jobs |
-| `TASK-1.10` | [ ] | `P0` | `backend/app/api/auth.py` | `register()`, `login()`, `get_me()`, `logout()` | Sets secure `httpOnly` cookies on login |
+| `TASK-1.09` | [ ] | `P0` | `backend/app/core/upload_guard.py` | `validate_upload_file(file, max_mb=5)` | File size and MIME type security validator |
+| `TASK-1.10` | [ ] | `P0` | `backend/app/worker.py` | `class WorkerSettings` (Arq) | Async task worker handling offloaded background jobs |
 | `TASK-1.11` | [ ] | `P0` | `frontend/src/app/page.tsx` | `HeroPortalView()` | **Screen 1:** Spline 3D Scene (`fcb3d45a-...`) + "Get a Job" |
 | `TASK-1.12` | [ ] | `P0` | `frontend/src/components/auth-modals.tsx` | `LoginModal()`, `SignUpModal()` | Glassmorphic floating modals over 3D canvas |
 
@@ -99,14 +99,14 @@ Phase Status: ⚪ NOT STARTED   |   Priority: P0 - Critical (MVP Core)   |   Tas
 ```
 
 ### 🎯 Objective
-Build **Screen 2: Knowledge Base Onboarding (`/onboarding`)** with the clean 3D Spline Scene (`67f56854-67d0-4779-b5ed-371c2f5d169e`). Ingest Master Resumes, GitHub repositories, academic papers, and screening QA vault. Process with Gemini 2.0 Flash into strict JSON and generate 384-dimensional dense embeddings in `pgvector`.
+Build **Screen 2: Knowledge Base Onboarding (`/onboarding`)** with the clean 3D Spline Scene (`67f56854-67d0-4779-b5ed-371c2f5d169e`). Ingest Master Resumes (validated $\le 5\text{MB}$), GitHub repositories, academic papers, and screening QA vault. Process with Gemini 2.0 Flash into strict JSON and generate 384-dimensional dense embeddings in `pgvector`.
 
 ### 📐 Phase 2 Technical Implementation Flowchart
 ```mermaid
 flowchart TD
     subgraph S2_UI ["Screen 2: 3D Knowledge Base (/onboarding)"]
         SplineScene2["Spline 3D Clean Backdrop (67f56854-67d0-4779-b5ed-371c2f5d169e)"]
-        Dropzone["Master Resume Dropzone (PDF/DOCX) + GitHub Connect + QA Vault"]
+        Dropzone["Master Resume Dropzone (PDF/DOCX max 5MB) + GitHub Sync + QA Vault"]
         BtnSave["[ Save & Discover Opportunities ➔ ] Button"]
     end
 
@@ -155,49 +155,51 @@ flowchart TD
 
 ---
 
-# Phase 3: API-Based Opportunity Discovery Radar & Scoring
+# Phase 3: Global Discovery Radar & Stale Decay Engine
 
 ```
 Phase Status: ⚪ NOT STARTED   |   Priority: P0 - Critical (MVP Core)   |   Tasks: 0/12 Completed
 ```
 
 ### 🎯 Objective
-Build **Screen 3: Opportunity Discovery Radar (`/dashboard`)**. Ingests verified opportunities via **Direct Public APIs & Feeds** (Greenhouse public JSON, Lever public API, Ashby JSON, Hacker News Firebase API, Unstop & Devpost RSS). Apply the **Stale Opportunity Filter (>1,000 applicants & >2 weeks old)** and compute 0–100% match confidence scores via `pgvector` Cosine Similarity + BM25 keyword matching.
+Build **Screen 3: Opportunity Discovery Radar (`/dashboard`)**. Ingests verified opportunities via **Adzuna Global Search API + Company Board Registry (500+ curated Greenhouse & Lever boards) + Hacker News API + Unstop/Devpost RSS**. Apply the **Posting Age Decay Stale Filter (`posted_days > 21`)** and compute 0–100% match confidence scores via `pgvector` Cosine Similarity + BM25 keyword matching.
 
 ### 📐 Phase 3 Technical Implementation Flowchart
 ```mermaid
 flowchart TD
-    subgraph APISources ["Verified Public API Ingestion (backend/app/services/scrapers/)"]
+    subgraph DiscoverySources ["Global & ATS Ingestion (backend/app/services/scrapers/)"]
+        SeedReg["Company Seed Registry (500+ curated company board slugs)"]
+        API_Adzuna["Adzuna Global Search API (api.adzuna.com)"]
         API_GH["Greenhouse Public Boards JSON (boards-api.greenhouse.io)"]
         API_Lever["Lever Public Postings API (api.lever.co)"]
-        API_Ashby["Ashby Public Job Boards GraphQL/JSON"]
         API_HN["Hacker News 'Who is Hiring?' Firebase API"]
         RSS_Hack["Unstop & Devpost Official RSS Feeds"]
     end
 
-    subgraph Pipeline ["Normalization & Stale Filtering"]
+    subgraph Pipeline ["Normalization & Age Decay Filtering"]
         Normalizer["OpportunityNormalizerService (SHA-256 Dedupe Hash)"]
-        StaleCheck{"STALE FILTER RULE:\napplicants_count > 1000\nAND posted_days_ago > 14?"}
-        MarkStale["Flag: is_stale = True (80% Confidence Penalty)"]
-        MarkFresh["Flag: is_stale = False (Normal Score)"]
+        AgeDecayCheck{"STALE AGE DECAY RULE:\nposted_days > 21 (50% penalty)\nposted_days > 45 (80% penalty)"}
+        ApplyDecay["Apply Stale Decay Multiplier (score * decay)"]
+        FreshScore["Normal Fresh Score (Multiplier = 1.0)"]
     end
 
     subgraph ScoringEngine ["Hybrid Scoring Engine (pgvector Cosine + BM25)"]
-        Formula["Final Confidence: (0.6 * VecSim + 0.4 * BM25) * StaleMultiplier\nScale: 0.0% – 100.0%"]
+        Formula["Final Confidence: (0.6 * VecSim + 0.4 * BM25) * DecayMultiplier\nScale: 0.0% – 100.0%"]
     end
 
     subgraph S3_UI ["Screen 3: Opportunity Radar (/dashboard)"]
         UI_Feed["Clean 3D Themed Opportunity Feed\n• Category Tabs (All, Jobs, Unstop Hackathons, Research, HN)\n• Match Confidence Badges (0–100%)\n• Stale Filter Toggle\n• Action: [ Review & Tailor Resume ➔ ]"]
     end
 
-    API_GH --> Normalizer --> StaleCheck
-    API_Lever --> Normalizer
-    API_Ashby --> Normalizer
+    SeedReg --> API_GH --> Normalizer
+    SeedReg --> API_Lever --> Normalizer
+    API_Adzuna --> Normalizer
     API_HN --> Normalizer
     RSS_Hack --> Normalizer
 
-    StaleCheck -->|Yes| MarkStale --> Formula
-    StaleCheck -->|No| MarkFresh --> Formula
+    Normalizer --> AgeDecayCheck
+    AgeDecayCheck -->|Stale| ApplyDecay --> Formula
+    AgeDecayCheck -->|Fresh| FreshScore --> Formula
     Formula --> UI_Feed
 ```
 
@@ -205,18 +207,18 @@ flowchart TD
 
 | Task ID | Status | Priority | Target File Path | Class / Function / Component | Dependencies / Notes |
 | :---: | :---: | :---: | :--- | :--- | :--- |
-| `TASK-3.01` | [ ] | `P0` | `backend/app/services/scrapers/greenhouse_api.py` | `class GreenhouseAPIClient` | Ingests public job listings from Greenhouse JSON boards |
-| `TASK-3.02` | [ ] | `P0` | `backend/app/services/scrapers/lever_api.py` | `class LeverAPIClient` | Ingests public job postings from Lever API |
-| `TASK-3.03` | [ ] | `P1` | `backend/app/services/scrapers/ashby_api.py` | `class AshbyAPIClient` | Ingests job postings from Ashby boards |
+| `TASK-3.00` | [ ] | `P0` | `backend/app/services/scrapers/company_registry.py` | `class CompanyBoardRegistry` | Curated seed dataset of 500+ Greenhouse/Lever board slugs |
+| `TASK-3.01` | [ ] | `P0` | `backend/app/services/scrapers/adzuna_api.py` | `class AdzunaAPIClient` | Queries global search index across thousands of active jobs |
+| `TASK-3.02` | [ ] | `P0` | `backend/app/services/scrapers/greenhouse_api.py` | `class GreenhouseAPIClient` | Ingests public job listings from Greenhouse JSON boards |
+| `TASK-3.03` | [ ] | `P0` | `backend/app/services/scrapers/lever_api.py` | `class LeverAPIClient` | Ingests public job postings from Lever API |
 | `TASK-3.04` | [ ] | `P1` | `backend/app/services/scrapers/hn_api.py` | `class HackerNewsHiringClient` | Fetches monthly "Who is hiring?" jobs via Firebase API |
 | `TASK-3.05` | [ ] | `P0` | `backend/app/services/scrapers/hackathon_rss.py` | `class HackathonFeedParser` | Ingests Unstop, Devpost, and Kaggle competition feeds |
 | `TASK-3.06` | [ ] | `P0` | `backend/app/services/opportunity_normalizer.py` | `class OpportunityNormalizerService` | Generates SHA-256 dedupe hash & cleans descriptions |
-| `TASK-3.07` | [ ] | `P0` | `backend/app/services/stale_filter.py` | `class StaleFilterService` | Strict rule: `applicants > 1000 and posted_days > 14` |
+| `TASK-3.07` | [ ] | `P0` | `backend/app/services/stale_filter.py` | `class StaleAgeDecayService` | Posting age decay rule (`>21 days` 50% decay, `>45 days` 80% decay) |
 | `TASK-3.08` | [ ] | `P0` | `backend/app/services/scoring_engine.py` | `class OpportunityScoringService` | Computes hybrid `pgvector` Cosine + BM25 match score |
 | `TASK-3.09` | [ ] | `P0` | `backend/app/models/opportunity.py` | `class Opportunity(Base)` | Database model storing opportunities and confidence scores |
 | `TASK-3.10` | [ ] | `P0` | `backend/app/api/discovery.py` | `get_feed()`, `trigger_sync()` | Endpoints for fetching scored listings feed |
 | `TASK-3.11` | [ ] | `P0` | `frontend/src/app/dashboard/page.tsx` | `OpportunityRadarView()` | **Screen 3:** Clean 3D themed feed with category tabs & search |
-| `TASK-3.12` | [ ] | `P0` | `frontend/src/components/opportunity-card.tsx` | `OpportunityCard()` | Renders confidence score badge, stale warning & action button |
 
 ---
 
@@ -325,7 +327,7 @@ flowchart TD
     end
 
     subgraph SequentialTriggers ["Post-Apply Triggers"]
-        TriggerStep6["Auto-Trigger Screen 5: 5-Contact Referral Finder"]
+        TriggerStep6["Auto-Trigger Screen 5: LinkedIn Referral Generator"]
         TriggerStep7["Auto-Trigger Screen 6: Real-Time Application Tracker"]
     end
 
@@ -357,53 +359,52 @@ flowchart TD
 
 ---
 
-# Phase 6: 5-Contact Referral Finder & Cold Outreach Drafter
+# Phase 6: LinkedIn Referral Search Generator & Outreach Drafter
 
 ```
 Phase Status: ⚪ NOT STARTED   |   Priority: P1 - High (Post-MVP)   |   Tasks: 0/10 Completed
 ```
 
 ### 🎯 Objective
-Build **Screen 5: 5-Contact Referral Hub (`/referrals/[id]`)**. Executed **strictly after the Auto-Apply completes**. Discovers 5 key employee/recruiter contacts at the target company, extracts their LinkedIn profiles and contact details, and synthesizes concise, high-converting cold outreach messages with a 1-click copy action.
+Build **Screen 5: Referral Search Hub (`/referrals/[id]`)**. Accessible on-demand or immediately post-application. Identifies 5 key employee personas (Recruiter, Engineering Lead, Team Peer, University Recruiter, Alumni) at the company, generates encoded direct LinkedIn Search URLs (opening in the user's logged-in session), and crafts tailored 50-word cold outreach messages with a 1-click copy action.
 
 ### 📐 Phase 6 Technical Implementation Flowchart
 ```mermaid
 flowchart TD
-    subgraph Trigger ["Sequential Trigger (Executed AFTER Apply)"]
-        PostApply["Phase 5 Auto-Apply Completes ➔ Triggers Referral Discovery"]
+    subgraph Trigger ["Trigger (On-Demand or Post-Apply)"]
+        PostApply["User selects Referral Hub on an Opportunity"]
     end
 
-    subgraph DiscoveryEngine ["Contact Discovery Engine (backend/app/services/referral_finder.py)"]
-        ExtractTarget["Extract Target Company Domain & Department Context"]
-        FindPersonas["Search 5 Key Employee Personas:\n1. Technical Recruiter / Talent Acquisition Lead\n2. Engineering Manager / Department Lead\n3. Senior Engineer / Potential Teammate\n4. University Recruiter (for Internships)\n5. University Alumni working at Company"]
-        EnrichContacts["Enrich Contact Cards:\n• Full Name & Role Title\n• LinkedIn Profile URL\n• Business Email (pattern heuristic) & Contact Info"]
+    subgraph PersonaEngine ["Persona & Search URL Generator (backend/app/services/referral_finder.py)"]
+        ExtractTarget["Extract Company Name & Applied Role Department"]
+        BuildSearches["Generate 5 Targeted LinkedIn Search URLs:\n1. Technical Recruiter Search URL\n2. Engineering Manager in Dept URL\n3. Senior Engineer / Team Peer URL\n4. University Recruiter URL\n5. College Alumni at Company URL"]
     end
 
     subgraph MessageGenerator ["Outreach Message Synthesizer (backend/app/services/outreach_generator.py)"]
-        Synthesize["Gemini 2.0 / Groq Drafter:\n• Personalize with contact's role & company tech stack\n• Short, simple, high-converting (<75 words)\n• Mentions applied position & specific candidate strength"]
+        Synthesize["Gemini 2.0 / Groq Drafter:\n• Personalize with persona role & company tech stack\n• Short, simple, high-converting (<75 words)\n• Mentions candidate's strongest matching project"]
     end
 
     subgraph S5_UI ["Screen 5: Referral Hub UI (/referrals/[id])"]
-        RenderCards["Display 5 Interactive Referral Cards:\n• Contact Avatar, Name, Title & Company Badge\n• LinkedIn Link & Verified Email Badge\n• Tailored Message Textarea\n• 📋 1-Click 'Copy Message' Button"]
+        RenderCards["Display 5 Interactive Persona Cards:\n• Persona Badge (Recruiter, Lead, Peer, Alumni)\n• Direct LinkedIn Search Link (Opens user's LinkedIn ↗)\n• Tailored Message Textarea\n• 📋 1-Click 'Copy Message' Button"]
     end
 
-    PostApply --> ExtractTarget --> FindPersonas --> EnrichContacts --> Synthesize --> RenderCards
+    PostApply --> ExtractTarget --> BuildSearches --> Synthesize --> RenderCards
 ```
 
 ### 📋 Phase 6 Granular Task Matrix
 
 | Task ID | Status | Priority | Target File Path | Class / Function / Component | Dependencies / Notes |
 | :---: | :---: | :---: | :--- | :--- | :--- |
-| `TASK-6.01` | [ ] | `P1` | `backend/app/services/referral_finder.py` | `extract_company_domain()` | Resolves target company domain & department |
-| `TASK-6.02` | [ ] | `P1` | `backend/app/services/referral_finder.py` | `discover_five_personas()` | Identifies 5 employee personas (Recruiter, Lead, Peer, Alumni) |
-| `TASK-6.03` | [ ] | `P1` | `backend/app/services/referral_finder.py` | `enrich_contact_details()` | Resolves LinkedIn URLs and business email patterns |
+| `TASK-6.01` | [ ] | `P1` | `backend/app/services/referral_finder.py` | `extract_company_metadata()` | Resolves target company name and department |
+| `TASK-6.02` | [ ] | `P1` | `backend/app/services/referral_finder.py` | `generate_linkedin_search_urls()` | Generates 5 encoded LinkedIn search deeplinks |
+| `TASK-6.03` | [ ] | `P1` | `backend/app/services/referral_finder.py` | `build_alumni_search_query()` | Custom search URL incorporating user's university |
 | `TASK-6.04` | [ ] | `P0` | `backend/app/services/outreach_generator.py` | `class OutreachGeneratorService` | Crafts short, personalized cold messages (<75 words) |
-| `TASK-6.05` | [ ] | `P1` | `backend/app/models/referral.py` | `class ReferralContact(Base)` | Database model storing contacts and generated messages |
-| `TASK-6.06` | [ ] | `P1` | `backend/app/schemas/referral.py` | `ReferralContactResponse`, `ReferralListSchema` | Pydantic schemas for referral API |
-| `TASK-6.07` | [ ] | `P1` | `backend/app/api/referrals.py` | `get_referrals()`, `regenerate_message()` | API endpoints for fetching and regenerating messages |
-| `TASK-6.08` | [ ] | `P1` | `frontend/src/app/referrals/[id]/page.tsx` | `ReferralHubView()` | **Screen 5:** Displays 5 referral contact cards for the applied role |
+| `TASK-6.05` | [ ] | `P1` | `backend/app/models/referral.py` | `class ReferralTarget(Base)` | Database model storing generated search queries and messages |
+| `TASK-6.06` | [ ] | `P1` | `backend/app/schemas/referral.py` | `ReferralSearchResponse`, `ReferralListSchema` | Pydantic schemas for referral API |
+| `TASK-6.07` | [ ] | `P1` | `backend/app/api/referrals.py` | `get_referral_searches()`, `regenerate_message()` | API endpoints for fetching and regenerating messages |
+| `TASK-6.08` | [ ] | `P1` | `frontend/src/app/referrals/[id]/page.tsx` | `ReferralHubView()` | **Screen 5:** Displays 5 referral cards with direct search links |
 | `TASK-6.09` | [ ] | `P0` | `frontend/src/components/referral-card.tsx` | `CopyMessageButton()` | 1-Click clipboard copy button with visual feedback |
-| `TASK-6.10` | [ ] | `P2` | `frontend/src/components/referral-card.tsx` | `ReferralCard()` | Interactive card with direct LinkedIn link & message box |
+| `TASK-6.10` | [ ] | `P2` | `frontend/src/components/referral-card.tsx` | `ReferralCard()` | Card with direct LinkedIn search link & message box |
 
 ---
 
@@ -487,7 +488,7 @@ pytest tests/test_auth.py -v
 # 2. Verify Phase 2 (Knowledge Base & RAG Vector Engine)
 pytest tests/test_rag.py -v
 
-# 3. Verify Phase 3 (API Ingestion & Stale Filter)
+# 3. Verify Phase 3 (Discovery APIs, Company Registry & Stale Decay)
 pytest tests/test_discovery.py -v
 
 # 4. Verify Phase 4 (ATS Evaluator & Typst PDF Compiler)
@@ -496,7 +497,7 @@ pytest tests/test_tailoring.py -v
 # 5. Verify Phase 5 (Playwright Browser Auto-Apply)
 pytest tests/test_apply.py -v
 
-# 6. Verify Phase 6 (5-Contact Referral Finder)
+# 6. Verify Phase 6 (LinkedIn Referral Search Generator)
 pytest tests/test_referrals.py -v
 
 # 7. Verify Phase 7 (Real-Time Tracker & Excel Export)

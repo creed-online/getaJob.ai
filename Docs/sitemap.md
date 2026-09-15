@@ -1,4 +1,4 @@
-# 🗺️ getJob.ai — Simplified 3D Application Sitemap & User Flow (Refactored)
+# 🗺️ getJob.ai — Simplified 3D Application Sitemap & User Flow (V2 Production)
 
 > **Design Philosophy:** Ultra-clean, minimal, and immersive. Every page is centered around interactive 3D visual environments (Spline / Three.js) with zero visual clutter, leading the user smoothly from onboarding to auto-application.
 
@@ -16,24 +16,24 @@ flowchart TD
 
     subgraph S2 ["Screen 2: 3D Knowledge Base Onboarding (Spline Scene 2)"]
         KB3D["Clean 3D Backdrop (Zero Distraction)"]
-        KBUpload["Upload Knowledge Base:\n• Master Resume (PDF/DOCX Dropzone)\n• GitHub Repos Connect\n• Research Papers & Transcripts (Optional)\n• Screening QA Vault"]
+        KBUpload["Upload Knowledge Base:\n• Master Resume (PDF/DOCX max 5MB)\n• GitHub Repos Connect\n• Research Papers & Transcripts (Optional)\n• Screening QA Vault"]
         BtnSave["[ Save & Discover Opportunities ➔ ]"]
     end
 
     subgraph S3 ["Screen 3: Opportunity Discovery Radar"]
         Radar3D["Clean 3D Themed Opportunity Feed"]
-        Cards["Scored Cards (Greenhouse, Lever, Ashby, Unstop, HN, Research)\n• Confidence Score Gauge (0–100%)\n• Stale Listing Filter (>1000 apps & >2 weeks old)"]
+        Cards["Scored Cards (Adzuna Global Index + 500+ Company Boards + HN + Unstop)\n• Confidence Score Gauge (0–100%)\n• Posting Age Decay Filter (>21 days)"]
         BtnTailor["[ Review & Tailor Resume ➔ ]"]
     end
 
     subgraph S4 ["Screen 4: Validation & Tailoring Studio"]
-        Studio["ATS Score Meter (1–10) + Keyword Gap\n• Auto-Tuned Bullets (Google XYZ)\n• Company-Aligned Cover Letter\n• 📥 Direct Download Tailored Resume & CV (Typst PDF)"]
+        Studio["Deterministic Structural Audit + ATS Score (1–10)\n• Auto-Tuned Bullets (Google XYZ)\n• Company-Aligned Cover Letter\n• 📥 Direct Download Tailored Resume & CV (Typst PDF)"]
         BtnApply["[ 1-Click Auto-Apply 🚀 ]"]
     end
 
-    subgraph S5 ["Screen 5: Auto-Apply & 5-Contact Referral Hub"]
+    subgraph S5 ["Screen 5: Auto-Apply & LinkedIn Referral Hub"]
         AutoApply["1-Click Apply for Greenhouse/Lever + Assisted Copilot for Workday\n(Pause only if custom unknown question)"]
-        ReferralCards["5 Strategic Referral Contacts Found\n(Recruiter, Lead, Peer, Alumni)\n• 📋 1-Click Copy Short Outreach Message"]
+        ReferralCards["5 Persona Referral Cards (Recruiter, Lead, Peer, Alumni)\n• Direct LinkedIn Search Deeplink (Opens user session ↗)\n• 📋 1-Click Copy Short Outreach Message"]
     end
 
     subgraph S6 ["Screen 6: Real-Time Application Tracker"]
@@ -58,35 +58,34 @@ flowchart TD
   * Bold typography in the dead center: **`Get a Job`**.
   * Tagline: *Your autonomous AI career copilot.*
   * Two sleek, glassmorphic action buttons directly beneath:
-    * **`[ 🔐 Login ]`** ➔ Opens smooth glass modal (Sets secure `httpOnly` JWT cookie).
-    * **`[ ✨ Sign Up ]`** ➔ Opens smooth registration modal (Email, Name, Phone, Password, Confirm Password).
-* **Action:** Upon successful authentication, the user is immediately transitioned to **Screen 2**.
+    * **`[ 🔐 Login ]`** ➔ Opens glass modal (Sets secure `httpOnly` `SameSite=Lax` cookie).
+    * **`[ ✨ Sign Up ]`** ➔ Opens registration modal (Email, Name, Phone, Password, Confirm Password).
+* **Action:** Upon successful authentication, the user is transitioned to **Screen 2**.
 
 ---
 
 ### 💾 Screen 2: 3D Knowledge Base Onboarding (`/onboarding`)
 * **Visual Atmosphere:** Immersive, clean 3D backdrop based on Spline scene (`67f56854-67d0-4779-b5ed-371c2f5d169e`).
-* **Design Rule:** **Zero clutter.** No confusing sidebars or extra menus—100% focused on ingesting career memory:
-  * **Master Resume Dropzone:** Drag & drop PDF/DOCX with instant layout and skill parsing.
+* **Design Rule:** **Zero clutter.** 100% focused on ingesting career memory with strict upload guardrails:
+  * **Master Resume Dropzone:** Drag & drop PDF/DOCX (max 5MB, MIME checked) with instant parsing.
   * **GitHub Repositories:** One-click GitHub sync to analyze codebases and READMEs.
   * **Research Papers & Transcripts (Optional):** Attach academic publications and coursework.
   * **Screening QA Vault (Optional):** Pre-fill salary expectations, visa status, and behavioral answers.
-* **Primary Action:** **`[ Save & Discover Opportunities ➔ ]`** ➔ Enqueues `arq` background vectorization and advances to the Opportunity Radar.
+* **Primary Action:** **`[ Save & Discover Opportunities ➔ ]`** ➔ Enqueues `arq` background vectorization and advances to Screen 3.
 
 ---
 
 ### 🌐 Screen 3: Opportunity Discovery Radar (`/dashboard`)
 * **Visual Theme:** Consistent 3D dark-mode aesthetic with ambient lighting.
-* **Direct Public Feeds:**
-  * Greenhouse public boards JSON (`boards-api.greenhouse.io`).
-  * Lever public postings API (`api.lever.co`).
-  * Ashby public job boards.
-  * Hacker News "Who is Hiring?" Firebase API.
-  * Unstop & Devpost hiring hackathon RSS feeds.
+* **Data Sources (Zero-Ban & Reliable):**
+  * **Adzuna Global Search API:** Covers thousands of active global job postings.
+  * **Company Board Registry:** 500+ curated Greenhouse (`boards-api.greenhouse.io`) and Lever (`api.lever.co`) boards.
+  * **Hacker News "Who is Hiring?":** Official Firebase JSON API.
+  * **Unstop & Devpost:** Official RSS feeds for hackathons and hiring challenges.
 * **Key Card Attributes:**
   * Job/Hackathon Title, Company, Location.
   * **Match Confidence Gauge (0–100%)** based on `pgvector` Cosine Similarity + BM25 keyword overlap.
-  * **Freshness Badge** (Stale listings with $>1000$ applicants and posted $>2$ weeks ago are filtered).
+  * **Posting Age Decay Filter:** Decays score if posted $>21$ days ago.
 * **Primary Action:** Clicking any card opens the **Validation & Tailoring Studio**.
 
 ---
@@ -94,7 +93,7 @@ flowchart TD
 ### ✍️ Screen 4: Opportunity Validation & Tailoring Studio (`/tailor/[id]`)
 * **Visual Theme:** Minimalist split-panel view with real-time score indicators.
 * **Content:**
-  * **ATS Score Gauge (Scale 1–10):** Code-based structural check + Gemini keyword critique.
+  * **ATS Score Gauge (Scale 1–10):** Deterministic structural check (selectable text, standard headers) + Gemini keyword critique.
   * **Automatic Optimization (if Score < 8):** Injects required keywords and rewrites bullets into the Google XYZ impact format.
   * **Cover Letter Generator:** Custom letter matched to the company and role.
   * **Download Bar:** 
@@ -104,14 +103,14 @@ flowchart TD
 
 ---
 
-### 🤖 Screen 5: 1-Click Auto-Apply & 5-Contact Referral Hub (`/referrals/[id]`)
+### 🤖 Screen 5: 1-Click Auto-Apply & LinkedIn Referral Hub (`/referrals/[id]`)
 * **Auto-Apply Flow:**
   * **Greenhouse & Lever:** Autonomous Playwright browser agent auto-fills fields, attaches the tailored Typst PDF, and submits.
   * **Workday & Complex Portals:** Assisted Apply Copilot drawer with pre-filled Answer Pack and 1-click clipboard triggers.
   * **Human-in-the-loop safety:** If an unknown custom question appears, the UI cleanly pauses and prompts the user for the answer.
-* **5-Contact Referral Hub (Appears Post-Application):**
-  * Displays 5 key employee cards at the company (Recruiter, Engineering Lead, Team Peer, University Recruiter, Alumni).
-  * Includes verified LinkedIn profile links, emails, and contact details.
+* **LinkedIn Referral Hub (Accessible on-demand or post-apply):**
+  * Displays 5 Persona Cards (Technical Recruiter, Engineering Manager, Team Peer, University Recruiter, Alumni).
+  * Generates **Direct LinkedIn Search Deeplinks** (opens real-time search inside the user's logged-in session ↗).
   * Features a **`📋 1-Click Copy Short Message`** button with a concise (<75 words) personalized cold outreach note.
 
 ---
